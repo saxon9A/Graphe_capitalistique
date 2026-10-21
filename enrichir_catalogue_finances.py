@@ -9,7 +9,10 @@ un SIREN candidat (rapproché par le nom, voir catalogue_eurazeo.py) :
     - chiffre d'affaires, résultat net, année de l'exercice, CA de l'exercice
       précédent et croissance du CA (quand deux exercices sont disponibles) ;
     - date_installation_siege (date d'installation à l'adresse actuelle du
-      siège), pour le calcul du cycle de bail commercial 3/6/9 du dashboard.
+      siège), pour le calcul du cycle de bail commercial 3/6/9 du dashboard ;
+    - fiche d'identité complète (SIRET du siège, forme juridique, NAF,
+      dirigeants, nombre d'établissements, date de création) — ajouté le
+      21/10/2026, à la demande explicite de l'utilisateur : voir le ⚠️ ci-dessous.
 
   TIER 2, en repli UNIQUEMENT pour les sociétés sans CA via le Tier 1, et
   UNIQUEMENT si INPI_USERNAME/INPI_PASSWORD sont renseignés dans .env :
@@ -21,8 +24,18 @@ un SIREN candidat (rapproché par le nom, voir catalogue_eurazeo.py) :
       (*_estime_bilan), jamais mélangé aux colonnes structurées du Tier 1.
 
 ⚠️ Rappel du projet : le SIREN de chaque ligne du catalogue n'est qu'un
-rapprochement par similarité de nom, jamais garanti (voir catalogue_eurazeo.py).
-Tout ce que ce script ajoute hérite donc de la même réserve.
+rapprochement par similarité de nom, jamais garanti, MÊME à un score de 100 %
+avec « vérification nécessaire » à Non (voir catalogue_eurazeo.py — exemples
+réels déjà rencontrés sur ce catalogue : « Mapal », « Planet », rapprochés à
+100 % vers des sociétés sans rapport). Jusqu'au 21/10/2026, le dashboard ne
+montrait donc JAMAIS la fiche d'identité complète pour une société du
+catalogue, quel que soit le score. À cette date, l'utilisateur a demandé
+explicitement de l'afficher quand même pour toutes les sociétés du catalogue,
+en toute connaissance de ce risque (vérifié dans ce cas précis : Ankorstore
+correctement rapproché). Le badge « Lien non vérifié » sur la fiche société et
+le lien vers la fiche officielle (annuaire-entreprises.data.gouv.fr) restent
+affichés pour TOUTE société du catalogue, pour permettre une vérification en
+un clic avant toute prise de contact.
 
 Usage :
     python enrichir_catalogue_finances.py
@@ -40,7 +53,13 @@ from src.api_recherche_entreprises import get_entreprise_par_siren
 CHEMIN = config.OUTPUT_DIR / "portefeuille_eurazeo_catalogue.csv"
 DOSSIER_DASH = config.BASE_DIR / "dashboard" / "data"
 CHAMPS_TIER1 = ["tranche_effectif", "chiffre_affaires", "resultat_net", "annee_finances",
-                "chiffre_affaires_annee_precedente", "croissance_ca_pct", "date_installation_siege"]
+                "chiffre_affaires_annee_precedente", "croissance_ca_pct", "date_installation_siege",
+                # Fiche d'identité complète (21/10/2026) : déjà renvoyés par le même appel API que
+                # ci-dessus (details.ligne_depuis_api), aucun appel supplémentaire nécessaire.
+                "siret_siege", "forme_juridique_code", "forme_juridique", "naf_code", "naf_libelle",
+                "naf_section_code", "naf_section", "dirigeants", "nb_etablissements",
+                "nb_etablissements_ouverts", "categorie_entreprise", "date_creation",
+                "annee_tranche_effectif"]
 CHAMPS_TIER2 = ["chiffre_affaires_estime_bilan", "resultat_net_estime_bilan", "effectif_estime_bilan",
                 "bilan_ligne_source_ca", "bilan_ligne_source_resultat", "bilan_ligne_source_effectif"]
 
@@ -80,6 +99,18 @@ def enrichir_tier1(df: pd.DataFrame) -> list[dict]:
             df.at[idx, "chiffre_affaires_annee_precedente"] = _s(e.get("chiffre_affaires_annee_precedente"))
             df.at[idx, "croissance_ca_pct"] = _s(e.get("croissance_ca_pct"))
             df.at[idx, "date_installation_siege"] = _s(e.get("date_installation_siege"))
+            df.at[idx, "siret_siege"] = _s(e.get("siret_siege"))
+            df.at[idx, "forme_juridique_code"] = _s(e.get("forme_juridique_code"))
+            df.at[idx, "forme_juridique"] = _s(e.get("forme_juridique"))
+            df.at[idx, "naf_code"] = _s(e.get("naf_code"))
+            df.at[idx, "naf_libelle"] = _s(e.get("naf_libelle"))
+            df.at[idx, "naf_section_code"] = _s(e.get("naf_section_code"))
+            df.at[idx, "naf_section"] = _s(e.get("naf_section"))
+            df.at[idx, "dirigeants"] = _s(e.get("dirigeants"))
+            df.at[idx, "nb_etablissements"] = _s(e.get("nb_etablissements"))
+            df.at[idx, "nb_etablissements_ouverts"] = _s(e.get("nb_etablissements_ouverts"))
+            df.at[idx, "categorie_entreprise"] = _s(e.get("categorie_entreprise"))
+            df.at[idx, "date_creation"] = _s(e.get("date_creation"))
             etat = "CA trouvé" if e.get("chiffre_affaires") is not None else "pas de CA structuré"
             print(f"  {i}/{len(a_traiter)}  {nom[:35]:35}  {etat}  ·  installation : {e.get('date_installation_siege') or '—'}")
             if e.get("chiffre_affaires") is None:

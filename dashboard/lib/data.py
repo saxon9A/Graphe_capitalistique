@@ -95,7 +95,10 @@ def charger_catalogue(_signature=None) -> pd.DataFrame:
                 "chiffre_affaires", "resultat_net", "annee_finances",
                 "chiffre_affaires_annee_precedente", "croissance_ca_pct", "date_installation_siege",
                 "chiffre_affaires_estime_bilan", "resultat_net_estime_bilan", "effectif_estime_bilan",
-                "bilan_ligne_source_ca", "bilan_ligne_source_resultat", "bilan_ligne_source_effectif"]
+                "bilan_ligne_source_ca", "bilan_ligne_source_resultat", "bilan_ligne_source_effectif",
+                "siret_siege", "forme_juridique_code", "forme_juridique", "naf_code", "naf_libelle",
+                "naf_section_code", "naf_section", "dirigeants", "nb_etablissements",
+                "nb_etablissements_ouverts", "categorie_entreprise", "date_creation"]
     if not FICHIER_CATALOGUE.exists():
         return pd.DataFrame(columns=colonnes)
     return pd.read_csv(FICHIER_CATALOGUE, sep=";", encoding="utf-8-sig", dtype=str, keep_default_na=False)
@@ -155,13 +158,20 @@ def lignes_catalogue(toutes: pd.DataFrame) -> pd.DataFrame:
     mises au même format que `toutes` pour pouvoir apparaître sur toutes les pages (annuaire,
     carte, fiche...), pas seulement sur Le graphe. Toujours marquées « Catalogue », jamais
     « Niveau N » : on ne sait pas, par quel véhicule ni avec quel pourcentage, Eurazeo les
-    détient. Le SIREN rapproché par le nom n'est volontairement PAS mis dans la colonne
-    `siren`/`identifiant` (seulement cité, en toutes lettres, dans la colonne `verification`) :
-    ça évite qu'il soit traité ailleurs comme un identifiant confirmé (lien « fiche officielle »,
-    recoupement par SIREN...), alors que ce rapprochement par nom seul n'est jamais garanti
-    (voir catalogue_eurazeo.py - ex. « Mapal », « Planet »). Jamais classées holding (on ne
-    connaît pas leur NAF) : elles restent toujours visibles, même avec le filtre « masquer les
-    holdings » coché."""
+    détient.
+
+    Jusqu'au 21/10/2026, le SIREN rapproché par le nom n'était volontairement JAMAIS mis dans
+    `siren`/`identifiant` (seulement cité en toutes lettres dans `verification`), pour qu'il ne
+    soit jamais traité ailleurs comme confirmé — ce rapprochement par nom seul n'est jamais
+    garanti, même à 100 % de score avec « vérification nécessaire » à Non (voir
+    catalogue_eurazeo.py, ex. réels « Mapal », « Planet », rapprochés à tort à ce score-là). À
+    cette date, demande EXPLICITE de l'utilisateur d'afficher quand même la fiche d'identité
+    complète pour toutes les sociétés du catalogue qui ont un SIREN candidat, risque assumé en
+    connaissance de cause. En contrepartie, deux garde-fous restent AFFICHÉS pour toute société
+    du catalogue, sans exception : le badge « Lien non vérifié » et le lien vers la fiche
+    officielle (annuaire-entreprises.data.gouv.fr), pour une vérification en un clic — voir
+    `dashboard/vues/fiche.py`. `est_holding` est maintenant calculée comme pour les autres
+    sociétés (via `naf_code`), alors qu'elle était forcée à False faute de NAF connu."""
     cat = charger_catalogue(FICHIER_CATALOGUE.stat().st_mtime if FICHIER_CATALOGUE.exists() else 0)
     vide = toutes.iloc[0:0].copy()
     if not len(cat):
@@ -187,17 +197,20 @@ def lignes_catalogue(toutes: pd.DataFrame) -> pd.DataFrame:
     out["niveau"] = -1
     out["niveau_lib"] = "Catalogue"
     out["type_court"] = "Catalogue"
-    out["est_holding"] = False
     out["source_relation"] = "Catalogue officiel des investissements, eurazeo.com"
     out["source_enrichissement"] = absentes["source"]
     out["date_collecte"] = absentes["verifie_le"]
     sr = absentes["siren"].replace("", "aucun (nom sans correspondance Sirene)")
     out["verification"] = (
         "Catalogue eurazeo.com, rapproché par le nom (score de similarité "
-        + absentes["score_correspondance"].replace("", "inconnu") + "), à vérifier avant usage. "
-        "SIREN candidat : " + sr + ".")
-    out["identifiant"] = ""   # cf. docstring : jamais le SIREN candidat ici
-    out["cle"] = out["nom"] + "  ·  sans identifiant"
+        + absentes["score_correspondance"].replace("", "inconnu") + "), à vérifier avant usage — "
+        "voir le lien vers la fiche officielle ci-dessous. SIREN candidat : " + sr + ".")
+    # Depuis le 21/10/2026 (voir docstring) : le SIREN candidat EST mis dans siren/identifiant,
+    # ce qui active la fiche d'identité complète et le lien vers la fiche officielle sur la fiche
+    # société — toujours à côté du badge "Lien non vérifié" et de la phrase ci-dessus.
+    out["siren"] = absentes["siren"]
+    out["identifiant"] = absentes["siren"]
+    out["cle"] = out["nom"] + "  ·  " + np.where(absentes["siren"] != "", absentes["siren"], "sans identifiant")
     out["texte_recherche"] = (absentes["nom"] + " " + absentes["secteur"] + " " + absentes["adresse"]).str.lower()
     out["etat_web"] = np.where(absentes["statut"].str.lower() == "cédée", "cédée (site Eurazeo)", "")
 
@@ -205,7 +218,8 @@ def lignes_catalogue(toutes: pd.DataFrame) -> pd.DataFrame:
     # enrichir_catalogue_finances.py / geocoder_catalogue.py) ; sinon vides, jamais devinées.
     COLONNES_CATALOGUE_NUMERIQUES = ["latitude", "longitude", "chiffre_affaires", "resultat_net",
         "annee_finances", "chiffre_affaires_annee_precedente", "croissance_ca_pct",
-        "chiffre_affaires_estime_bilan", "resultat_net_estime_bilan", "effectif_estime_bilan"]
+        "chiffre_affaires_estime_bilan", "resultat_net_estime_bilan", "effectif_estime_bilan",
+        "nb_etablissements", "nb_etablissements_ouverts"]
     for c in ("niveau", "pourcentage_detention", "latitude", "longitude", "nb_etablissements",
               "nb_etablissements_ouverts", "chiffre_affaires", "resultat_net", "annee_finances",
               "chiffre_affaires_annee_precedente", "croissance_ca_pct",
@@ -221,11 +235,17 @@ def lignes_catalogue(toutes: pd.DataFrame) -> pd.DataFrame:
             out[c] = np.nan
     if "latitude" in out.columns:
         out["geo_precision"] = np.where(pd.to_numeric(out["latitude"], errors="coerce").notna(), "adresse", "")
-    # Date d'installation et lignes sources du Tier 2 (texte) : copiées telles quelles si présentes.
+    # Date d'installation, fiche d'identité (siret, forme juridique, NAF, dirigeants, date de
+    # création) et lignes sources du Tier 2 (texte) : copiées telles quelles si présentes.
     for c in ("date_installation_siege", "bilan_ligne_source_ca", "bilan_ligne_source_resultat",
-              "bilan_ligne_source_effectif"):
+              "bilan_ligne_source_effectif", "siret_siege", "forme_juridique_code", "forme_juridique",
+              "naf_code", "naf_libelle", "naf_section_code", "naf_section", "dirigeants",
+              "categorie_entreprise", "date_creation"):
         if c in out.columns:
             out[c] = absentes[c] if c in absentes.columns else ""
+    # est_holding : calculée comme pour le reste du dashboard, maintenant que naf_code est connu
+    # pour les sociétés du catalogue qui ont un SIREN (avant : toujours False, faute de NAF).
+    out["est_holding"] = out["naf_code"].isin(HOLDING_NAF) if "naf_code" in out.columns else False
     return out.reset_index(drop=True)
 
 

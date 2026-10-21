@@ -667,3 +667,51 @@ ta machine — seul ton propre terminal y a accès).
   bouton « Share » de l'app (connexion Google, ou lien à usage unique envoyé par email sinon) —
   **limite du compte gratuit : une seule app privée à la fois**. Source :
   [docs.streamlit.io/.../share-your-app](https://docs.streamlit.io/deploy/streamlit-community-cloud/share-your-app).
+
+### Fiche d'identité complète pour les sociétés du catalogue — 21/10/2026
+
+Avant cette date, la fiche société d'une société du **catalogue** (niveau -1, c'est-à-dire pas
+encore dans la chaîne de détention explorée par le graphe — ex. Ankorstore) restait volontairement
+presque vide : `siren`/`identifiant` étaient toujours mis à blanc dans le dashboard, même quand le
+SIREN avait été rapproché par le nom (`catalogue_eurazeo.py`) avec un bon score. Raison : ce
+rapprochement par nom seul n'est **jamais garanti**, même à 100 % de similarité avec
+« vérification nécessaire » à Non — deux cas réels déjà rencontrés sur ce catalogue : « Mapal »
+(rapprochée à une société allemande sans rapport) et « Planet » (rapprochée à une société vendéenne
+sans rapport).
+
+**Décision explicite de l'utilisateur à cette date** : afficher quand même la fiche d'identité
+complète (SIRET du siège, forme juridique, code/libellé NAF, dirigeants, nombre d'établissements,
+catégorie d'entreprise, date de création) pour **toutes** les sociétés du catalogue qui ont un
+SIREN candidat, risque de mauvais rapprochement assumé en connaissance de cause (vérifié dans le
+cas d'Ankorstore via une source indépendante — pappers.fr — qui confirme le SIREN 852870658).
+
+Deux garde-fous restent affichés sur la fiche société, pour **toute** société du catalogue, sans
+exception : le badge « Lien non vérifié » et le lien vers la fiche officielle
+(annuaire-entreprises.data.gouv.fr), pour une vérification en un clic avant toute prise de contact.
+
+Changements de code :
+- **`enrichir_catalogue_finances.py`** : `CHAMPS_TIER1` récupère maintenant 13 champs d'identité
+  supplémentaires (`siret_siege`, `forme_juridique_code`, `forme_juridique`, `naf_code`,
+  `naf_libelle`, `naf_section_code`, `naf_section`, `dirigeants`, `nb_etablissements`,
+  `nb_etablissements_ouverts`, `categorie_entreprise`, `date_creation`,
+  `annee_tranche_effectif`) — **sans appel API supplémentaire** : c'est le même appel déjà fait
+  (`details.ligne_depuis_api`) qui les renvoyait déjà, seulement ignorés jusqu'ici.
+- **`dashboard/lib/data.py`** (`lignes_catalogue()`) : `siren`/`identifiant` sont maintenant
+  remplis avec le SIREN candidat (au lieu d'être forcés à vide) ; les 12 champs d'identité ci-dessus
+  sont copiés depuis le catalogue quand ils existent ; `est_holding` est maintenant calculée via
+  `naf_code` comme pour le reste du dashboard (avant : toujours `False`, faute de NAF connu pour le
+  catalogue).
+
+**⚠️ Action nécessaire de ton côté** : ces changements de code ne remplissent rien par
+eux-mêmes — ils disent seulement au dashboard d'afficher ces colonnes si elles existent dans
+`sortie/portefeuille_eurazeo_catalogue.csv`. Pour que les 269 sociétés du catalogue récupèrent
+réellement leur fiche d'identité (SIRET, NAF, dirigeants...), relance, depuis **ton** terminal
+(seul endroit avec un accès réel à `recherche-entreprises.api.gouv.fr` — l'API reste bloquée depuis
+mon bac à sable et depuis le pont vers ta machine, comme déjà documenté plus haut) :
+```bash
+python enrichir_catalogue_finances.py
+```
+Ça réutilise le même appel API déjà fait pour le CA/effectif (aucun appel supplémentaire, aucun
+coût de quota en plus) et copie aussi le résultat dans `dashboard/data/`. Sans ce relancement, les
+nouvelles colonnes resteront vides (comportement sans danger : pas de crash, juste rien à afficher)
+et seuls `siren`/`identifiant` (déjà présents dans le fichier actuel) apparaîtront tout de suite.
