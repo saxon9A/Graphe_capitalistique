@@ -80,6 +80,12 @@ def pct(x, decimales=1):
     return f"{x:.{decimales}f}".replace(".", ",") + " %"
 
 
+def date_fr(x) -> str:
+    """AAAA-MM-JJ (format des CSV du projet) -> JJ/MM/AAAA. « — » si manquant ou mal formé."""
+    p = str(x or "").split("-")
+    return f"{p[2]}/{p[1]}/{p[0]}" if len(p) == 3 else "—"
+
+
 def montant(x) -> str:
     """Montant en euros, format français (espace comme séparateur de milliers). « — » si manquant —
     jamais une chaîne numérique brute passée telle quelle à un NumberColumn Streamlit : certaines

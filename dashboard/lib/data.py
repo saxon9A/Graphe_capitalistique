@@ -184,6 +184,11 @@ def lignes_catalogue(toutes: pd.DataFrame) -> pd.DataFrame:
     out = pd.DataFrame(index=absentes.index, columns=toutes.columns, dtype=object)
     out[:] = ""
     out["nom"] = absentes["nom"]
+    # Raison sociale (dénomination Sirene) : peut différer du nom commercial affiché sur eurazeo.com
+    # (ex. nom de marque). Repli sur « nom » si absente (fichier catalogue pas encore enrichi, ou
+    # société sans SIREN candidat) plutôt qu'une case vide alors qu'on connaît au moins un nom.
+    out["nom_legal"] = (absentes["nom_legal"].where(absentes["nom_legal"].str.strip() != "", absentes["nom"])
+                        if "nom_legal" in absentes.columns else absentes["nom"])
     out["adresse"] = absentes["adresse"]
     out["code_postal"] = absentes["code_postal"]
     out["ville"] = absentes["commune"]
@@ -284,6 +289,10 @@ def charger(_signature) -> pd.DataFrame:
     df["texte_recherche"] = (df["nom"] + " " + df["siren"] + " " + df["adresse"] + " " + df["ville"] + " "
                              + df["identifiant_etranger"]).str.lower()
     df["niveau_lib"] = "Niveau " + df["niveau"].astype(str)
+    # Raison sociale : pas de dénomination distincte collectée pour ces sociétés (contrairement au
+    # catalogue, où « nom » est le nom commercial du site eurazeo.com) — « nom » vient déjà de
+    # Sirene/l'API Recherche d'Entreprises, donc déjà la dénomination officielle.
+    df["nom_legal"] = df["nom"]
     df["etat_web"] = df["nom"].map(lambda n: (evenements_de(n) or [{"etat": ""}])[0]["etat"])
     df["est_holding"] = df["naf_code"].isin(HOLDING_NAF)
     df["type_court"] = np.where(df["type_relation"].str.startswith("Filiale"), "Filiale",

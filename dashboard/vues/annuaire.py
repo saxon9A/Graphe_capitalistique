@@ -22,31 +22,21 @@ t["nom_detentrice"] = t["nom_detentrice"].str.title().str.replace("Lh ", "LH ")
 # le dashboard déployé) — voir ui.montant().
 t["CA (dernier connu)"] = t["chiffre_affaires"].fillna(t["chiffre_affaires_estime_bilan"]).map(ui.montant)
 t["Résultat net (dernier connu)"] = t["resultat_net"].fillna(t["resultat_net_estime_bilan"]).map(ui.montant)
-# Pour une société du catalogue, « Type » redirait toujours « Catalogue », déjà dit par « Niveau » :
-# laissé vide pour ces lignes plutôt que répété deux fois dans le tableau.
-t["type_court"] = t["type_court"].where(t["niveau"] != -1, "")
-vue = t[["nom", "score_opportunite", "urgence_libelle", "score_fiabilite", "niveau_lib", "nom_detentrice",
-         "identifiant", "type_court", "zone", "pourcentage_detention", "part_economique_eurazeo", "adresse",
-         "tranche_effectif", "naf_code", "forme_juridique", "statut_administratif", "date_creation", "etat_web",
-         "CA (dernier connu)", "Résultat net (dernier connu)"]].rename(columns={
-    "nom": "Société", "score_opportunite": "Score d'opportunité",
-    "urgence_libelle": "Statut du bail (estimation 3/6/9)", "score_fiabilite": "Fiabilité (/2)",
-    "niveau_lib": "Niveau", "nom_detentrice": "Détenue par",
-    "part_economique_eurazeo": "Part indirecte d'Eurazeo (calcul)",
-    "identifiant": "SIREN / identifiant", "type_court": "Type", "zone": "Zone",
-    "pourcentage_detention": "Part détenue", "adresse": "Adresse", "tranche_effectif": "Effectif",
-    "naf_code": "NAF", "forme_juridique": "Forme juridique", "statut_administratif": "Statut",
-    "date_creation": "Création", "etat_web": "Cession (source web)"})
+t["Date d'installation"] = t["date_installation_siege"].map(ui.date_fr)
+# Colonnes centrées sur la prospection en priorité (21/10/2026, demande explicite) ; fiabilité,
+# niveau, détenue par, type, part détenue, part indirecte et NAF retirés de ce tableau (redondants
+# ou peu utiles pour cibler une société à démarcher — toujours visibles sur sa fiche complète).
+vue = t[["nom", "score_opportunite", "adresse", "Date d'installation", "nom_legal", "tranche_effectif",
+         "CA (dernier connu)", "Résultat net (dernier connu)",
+         "identifiant", "zone", "forme_juridique", "statut_administratif", "date_creation",
+         "etat_web"]].rename(columns={
+    "nom": "Société", "score_opportunite": "Score d'opportunité", "adresse": "Adresse",
+    "nom_legal": "Raison sociale", "tranche_effectif": "Effectif",
+    "identifiant": "SIREN / identifiant", "zone": "Zone", "forme_juridique": "Forme juridique",
+    "statut_administratif": "Statut", "date_creation": "Création", "etat_web": "Cession (source web)"})
 config = {"Score d'opportunité": st.column_config.ProgressColumn("Score d'opportunité", format="%d", min_value=0, max_value=100,
               help="Score indicatif de prospection immobilière (0 à 100, pondération bail/finances), "
                    "détaillé sur la fiche de chaque société. 50 sans aucune case grisée = aucune donnée du tout."),
-          "Fiabilité (/2)": st.column_config.NumberColumn(
-              help="Nombre de critères (bail, finances) qui reposent sur une donnée réelle plutôt que sur la "
-                   "valeur neutre par défaut. 0 = score à 50 par construction, à ignorer."),
-          "Part détenue": st.column_config.ProgressColumn("Part détenue", format="%.1f %%", min_value=0, max_value=100,
-                                                         help="Part du capital détenue par la société de la colonne « Détenue par »."),
-          "Part indirecte d'Eurazeo (calcul)": st.column_config.NumberColumn(format="%.1f %%",
-              help="Niveau 2 : part de la holding dans la société × part d'Eurazeo dans la holding. Un calcul, pas une donnée publiée."),
           "CA (dernier connu)": st.column_config.TextColumn(
               help="Structuré (API Recherche d'Entreprises) si disponible, sinon estimé depuis un bilan INPI (voir la fiche société)."),
           "Résultat net (dernier connu)": st.column_config.TextColumn()}
@@ -63,7 +53,8 @@ if lignes:
     if c1.button("Ouvrir la fiche", type="primary"):
         st.session_state["fiche_select"] = cle
         st.switch_page("vues/fiche.py")
-c2.download_button("Télécharger la sélection (CSV)", df.drop(columns=["texte_recherche", "cle"]).to_csv(
-    index=False, sep=";").encode("utf-8-sig"), file_name="societes_selection.csv", mime="text/csv")
+c2.download_button("Télécharger la sélection (CSV)", vue.to_csv(index=False, sep=";").encode("utf-8-sig"),
+                   file_name="societes_selection.csv", mime="text/csv",
+                   help="Mêmes colonnes et même ordre que le tableau ci-dessus.")
 
 ui.note_sources(df["date_collecte"].max(), niveau_max=int(toutes["niveau"].max()))
