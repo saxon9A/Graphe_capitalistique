@@ -1,0 +1,1 @@
+# Le fichier entreprises_detaillees.csv est généré par : python enrichir_details.py

@@ -1,0 +1,11 @@
+# Dépendances du dashboard déployé (Streamlit Community Cloud lit ce fichier en priorité
+# car il est à côté de app.py — voir docs.streamlit.io/deploy/.../app-dependencies).
+# Les scripts de collecte/enrichissement (requests, python-dotenv, pdfplumber) ne tournent
+# jamais sur Streamlit Cloud : ils restent dans le requirements.txt de la racine, pour un usage
+# en local uniquement. Versions testées (21/10/2026) : pandas 3.0 impose un backend PyArrow
+# pour les colonnes texte strictes (voir dashboard/lib/*.py et enrichir_catalogue_finances.py).
+streamlit>=1.38
+pandas>=3.0
+pyarrow>=16
+numpy>=1.26
+plotly>=5.20

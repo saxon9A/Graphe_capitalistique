@@ -1,0 +1,213 @@
+import csv
+import json
+import re
+import sys
+import time
+from pathlib import Path
+
+import requests
+
+API_URL = "https://recherche-entreprises.api.gouv.fr/search"
+
+
+def valider_siren(siren):
+    siren = str(siren).strip()
+    if not re.fullmatch(r"\d{9}", siren):
+        raise ValueError("Le SIREN doit contenir exactement 9 chiffres.")
+    return siren
+
+
+def rechercher_entreprise(siren):
+    """Recherche les informations publiques d'une entreprise."""
+    try:
+        response = requests.get(
+            API_URL,
+            params={"q": siren, "page": 1, "per_page": 10},
+            timeout=20,
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        for entreprise in data.get("results", []):
+            if str(entreprise.get("siren", "")) == siren:
+                siege = entreprise.get("siege") or {}
+                return {
+                    "siren": siren,
+                    "nom": entreprise.get("nom_raison_sociale", ""),
+                    "adresse": siege.get("adresse", ""),
+                    "activite": siege.get("activite_principale", ""),
+                    "etat": entreprise.get("etat_administratif", ""),
+                }
+
+        print(f"Aucune entreprise trouvée pour le SIREN {siren}.")
+    except requests.RequestException as e:
+        print(f"Erreur lors de l'appel API : {e}")
+
+    return {
+        "siren": siren,
+        "nom": "",
+        "adresse": "",
+        "activite": "",
+        "etat": "",
+    }
+
+
+def charger_relations(fichier="relations.json"):
+    chemin = Path(fichier)
+
+    if not chemin.exists():
+        print(f"Fichier introuvable : {fichier}")
+        return []
+
+    with chemin.open(encoding="utf-8") as f:
+        relations = json.load(f)
+
+    for relation in relations:
+        relation["parent_siren"] = valider_siren(
+            relation["parent_siren"]
+        )
+        relation["child_siren"] = valider_siren(
+            relation["child_siren"]
+        )
+
+    return relations
+
+
+def construire_graphe(siren_depart, relations):
+    enfants = {}
+
+    for relation in relations:
+        enfants.setdefault(
+            relation["parent_siren"], []
+        ).append(relation)
+
+    a_visiter = [(siren_depart, 0, 100.0, [siren_depart])]
+    visites = set()
+    noeuds = set()
+    aretes = []
+
+    while a_visiter:
+        siren, profondeur, taux_cumule, chemin = a_visiter.pop(0)
+
+        if siren in visites:
+            continue
+
+        visites.add(siren)
+        noeuds.add(siren)
+
+        for relation in enfants.get(siren, []):
+            enfant = relation["child_siren"]
+            pourcentage = relation.get("pourcentage")
+
+            try:
+                taux = float(pourcentage)
+                if not 0 <= taux <= 100:
+                    taux = None
+            except (TypeError, ValueError):
+                taux = None
+
+            indirect = (
+                taux_cumule * taux / 100
+                if taux_cumule is not None and taux is not None
+                else None
+            )
+
+            nouveau_chemin = chemin + [enfant]
+
+            aretes.append({
+                "parent_siren": siren,
+                "child_siren": enfant,
+                "pourcentage_direct": (
+                    taux if taux is not None else ""
+                ),
+                "pourcentage_indirect_theorique": (
+                    round(indirect, 4)
+                    if indirect is not None else ""
+                ),
+                "profondeur": profondeur + 1,
+                "source": relation.get("source", ""),
+                "annee": relation.get("annee", ""),
+                "chemin": " > ".join(nouveau_chemin),
+            })
+
+            noeuds.add(enfant)
+
+            if enfant not in visites:
+                a_visiter.append((
+                    enfant,
+                    profondeur + 1,
+                    indirect,
+                    nouveau_chemin,
+                ))
+
+    return sorted(noeuds), aretes
+
+
+def exporter_csv(noeuds, aretes):
+    dossier = Path("resultats")
+    dossier.mkdir(exist_ok=True)
+
+    entreprises = []
+
+    for index, siren in enumerate(noeuds):
+        print(f"Recherche {index + 1}/{len(noeuds)} : {siren}")
+        entreprises.append(rechercher_entreprise(siren))
+        time.sleep(0.2)
+
+    with (dossier / "entreprises.csv").open(
+        "w", newline="", encoding="utf-8-sig"
+    ) as f:
+        champs = ["siren", "nom", "adresse", "activite", "etat"]
+        writer = csv.DictWriter(f, fieldnames=champs)
+        writer.writeheader()
+        writer.writerows(entreprises)
+
+    with (dossier / "participations.csv").open(
+        "w", newline="", encoding="utf-8-sig"
+    ) as f:
+        champs = [
+            "parent_siren",
+            "child_siren",
+            "pourcentage_direct",
+            "pourcentage_indirect_theorique",
+            "profondeur",
+            "source",
+            "annee",
+            "chemin",
+        ]
+        writer = csv.DictWriter(f, fieldnames=champs)
+        writer.writeheader()
+        writer.writerows(aretes)
+
+    print("\nExport terminé.")
+    print(f"Entreprises : {dossier / 'entreprises.csv'}")
+    print(f"Participations : {dossier / 'participations.csv'}")
+    print(f"Nombre d'entreprises : {len(noeuds)}")
+    print(f"Nombre de relations : {len(aretes)}")
+
+
+def main():
+    if len(sys.argv) != 2:
+        print("Usage : python graphe.py SIREN")
+        sys.exit(1)
+
+    siren = valider_siren(sys.argv[1])
+
+    print(f"Recherche de l'entreprise de départ : {siren}")
+    entreprise = rechercher_entreprise(siren)
+
+    if not entreprise["nom"]:
+        print("Attention : entreprise non identifiée avec certitude.")
+
+    else:
+        print("Nom :", entreprise["nom"])
+        print("Adresse :", entreprise["adresse"])
+        print("Activité :", entreprise["activite"])
+
+    relations = charger_relations()
+    noeuds, aretes = construire_graphe(siren, relations)
+    exporter_csv(noeuds, aretes)
+
+
+if __name__ == "__main__":
+    main()

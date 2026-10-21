@@ -1,0 +1,4 @@
+vis-network.min.js : bibliothèque vis-network 9.1.9 (licence Apache-2.0 ou MIT), copiée telle quelle depuis
+npm (vis-network/standalone/umd/vis-network.min.js). Elle est incluse dans la page « Le graphe » :
+aucune connexion à un CDN n'est nécessaire.
+graphe.html : modèle de la page « Le graphe » (rempli par lib/graphe.py).

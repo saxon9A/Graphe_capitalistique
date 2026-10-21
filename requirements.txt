@@ -1,0 +1,7 @@
+# Dépendances complètes, pour un usage LOCAL (collecte + enrichissement + dashboard).
+# Le dashboard déployé sur Streamlit Community Cloud utilise dashboard/requirements.txt,
+# plus léger (pas de collecte sur Streamlit Cloud) — voir ce fichier pour le détail.
+-r dashboard/requirements.txt
+requests>=2.31.0
+python-dotenv>=1.0.0
+pdfplumber>=0.11.0

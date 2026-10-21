@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Le graphe</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap');
+:root { --fond:#070A12; --surface:#0E1424; --surface2:#141C30; --ligne:#1E2A45; --texte:#E8EEFA;
+        --texte2:#B4C0DA; --texte3:#7F8DAE; --neon:#22D3EE; }
+* { box-sizing: border-box; }
+html, body { margin:0; height:100%; background:transparent; color:var(--texte);
+             font-family: Manrope, 'Segoe UI', system-ui, sans-serif; font-size:14px; }
+#app { display:flex; flex-direction:column; height:100%; border:1px solid var(--ligne); border-radius:14px;
+       background:linear-gradient(180deg, rgba(20,28,48,.78), rgba(8,12,22,.94)); overflow:hidden; }
+#barre { display:flex; flex-wrap:wrap; gap:.45rem .9rem; align-items:center; padding:.6rem .8rem;
+         border-bottom:1px solid var(--ligne); }
+.groupe { display:flex; flex-wrap:wrap; align-items:center; gap:.35rem; }
+.groupe > .nom { color:var(--texte3); font-size:.78rem; margin-right:.15rem; }
+button, input { font:inherit; color:inherit; }
+.puce { display:inline-flex; align-items:center; gap:.4rem; padding:.28rem .7rem; border-radius:999px; cursor:pointer;
+        border:1px solid var(--ligne); background:rgba(20,28,48,.85); color:var(--texte2); font-size:.82rem; font-weight:600; }
+.puce .point { width:.65rem; height:.65rem; border-radius:50%; background:var(--c, var(--neon)); }
+.puce .n { color:var(--texte3); font-weight:500; }
+.puce[aria-pressed="true"] { border-color:var(--c, var(--neon)); color:var(--texte);
+                             background:color-mix(in srgb, var(--c, var(--neon)) 16%, transparent); }
+.puce[aria-pressed="false"] { opacity:.5; }
+.puce:hover { border-color:var(--neon); }
+.puce:focus-visible, .bouton:focus-visible, input:focus-visible, #fermer:focus-visible { outline:2px solid var(--neon); outline-offset:2px; }
+.bouton { padding:.28rem .75rem; border-radius:9px; cursor:pointer; border:1px solid var(--ligne);
+          background:rgba(20,28,48,.85); color:var(--texte); font-size:.82rem; }
+.bouton:hover { border-color:var(--neon); color:var(--neon); }
+.bouton[aria-pressed="true"] { border-color:var(--neon); background:rgba(34,211,238,.14); }
+.coche { display:inline-flex; align-items:center; gap:.35rem; color:var(--texte2); font-size:.82rem; cursor:pointer; }
+.coche input { accent-color:var(--neon); }
+#recherche { width:15rem; max-width:100%; padding:.3rem .65rem; border-radius:9px; border:1px solid var(--ligne);
+             background:rgba(7,10,18,.8); font-size:.84rem; }
+#recherche::placeholder { color:var(--texte3); }
+#zone { position:relative; flex:1; min-height:0; }
+#reseau { position:absolute; inset:0; }
+#etat { position:absolute; left:.8rem; top:.6rem; color:var(--texte3); font-size:.8rem; pointer-events:none;
+        background:rgba(7,10,18,.55); padding:.15rem .5rem; border-radius:8px; }
+#vide { position:absolute; inset:0; display:none; align-items:center; justify-content:center; text-align:center;
+        color:var(--texte2); padding:2rem; }
+#legende { position:absolute; left:.8rem; bottom:.7rem;
+           background:rgba(7,10,18,.72); border:1px solid var(--ligne); border-radius:10px; padding:.5rem .7rem;
+           font-size:.76rem; color:var(--texte2); max-width:17rem; }
+#legende .l { display:flex; align-items:center; gap:.5rem; margin-top:.28rem; }
+#legende svg { flex:none; }
+#panneau { position:absolute; right:.8rem; top:.7rem; width:min(21rem, calc(100% - 1.6rem)); max-height:calc(100% - 1.4rem);
+           overflow:auto; background:rgba(14,20,36,.96); border:1px solid var(--ligne); border-radius:12px;
+           padding:.9rem 1rem; display:none; box-shadow:0 8px 28px rgba(0,0,0,.45); }
+#panneau h2 { font-size:1.02rem; margin:0 1.6rem .4rem 0; line-height:1.25; }
+#panneau .pastilles { display:flex; flex-wrap:wrap; gap:.3rem; margin-bottom:.6rem; }
+.pastille { font-size:.72rem; font-weight:700; padding:.12rem .55rem; border-radius:999px; border:1px solid var(--c); color:var(--c); }
+#panneau dl { margin:0; }
+#panneau dt { color:var(--texte3); font-size:.74rem; margin-top:.55rem; }
+#panneau dd { margin:.08rem 0 0 0; color:var(--texte); line-height:1.4; font-size:.86rem; overflow-wrap:anywhere; }
+#panneau dd .doux { color:var(--texte3); }
+#panneau a { color:var(--neon); }
+#fermer { position:absolute; right:.5rem; top:.45rem; border:0; background:transparent; color:var(--texte2);
+          font-size:1.3rem; cursor:pointer; line-height:1; padding:.2rem .45rem; border-radius:8px; }
+#fermer:hover { color:var(--neon); }
+.chaine { display:flex; flex-direction:column; gap:.15rem; }
+.chaine .mail { color:var(--texte2); }
+.chaine .fleche { color:var(--texte3); font-size:.74rem; padding-left:.5rem; }
+div.vis-tooltip { background:#141C30 !important; color:#E8EEFA !important; border:1px solid #1E2A45 !important;
+  border-radius:8px !important; padding:.4rem .6rem !important; font:500 12px/1.4 Manrope, 'Segoe UI', sans-serif !important;
+  white-space:pre-line !important; box-shadow:0 6px 18px rgba(0,0,0,.4) !important; max-width:22rem; }
+#legende summary { cursor:pointer; color:var(--texte); font-weight:600; font-size:.78rem; }
+#legende[open] summary { margin-bottom:.35rem; }
+@media (max-width:640px) { #recherche { width:100%; } #legende { display:none; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="barre" role="toolbar" aria-label="Filtres du graphe">
+    <div class="groupe" id="g-zones"><span class="nom">Zone</span></div>
+    <div class="groupe" id="g-niveaux"><span class="nom">Niveau</span></div>
+    <label class="coche" title="Garde visibles les holdings qui relient une société affichée à Eurazeo">
+      <input type="checkbox" id="c-chemin" checked> Chemin jusqu'à Eurazeo</label>
+    <label class="coche"><input type="checkbox" id="c-pct"> Parts sur les liens</label>
+    <label class="coche" id="l-catalogue" title="Sociétés citées sur eurazeo.com, reliées directement à Eurazeo faute de chaîne de détention connue : lien non vérifié, aucune part publiée">
+      <input type="checkbox" id="c-catalogue"> <span id="t-catalogue">Catalogue eurazeo.com</span></label>
+    <div class="groupe">
+      <button class="bouton" id="b-mode" type="button" aria-pressed="false" title="Alterner entre un réseau libre et des anneaux : Eurazeo au centre, une couronne par niveau">En anneaux</button>
+      <button class="bouton" id="b-fige" type="button" aria-pressed="false" title="Arrête le mouvement des sociétés">Figer</button>
+      <button class="bouton" id="b-fit" type="button">Recentrer</button>
+    </div>
+    <input id="recherche" type="search" list="noms" placeholder="Trouver une société…" aria-label="Trouver une société" autocomplete="off">
+    <datalist id="noms"></datalist>
+  </div>
+  <div id="zone">
+    <div id="reseau"></div>
+    <div id="etat" aria-live="polite"></div>
+    <div id="vide"><div><b>Aucune société ne correspond.</b><br>Réactive une zone ou un niveau dans la barre du haut,<br>ou élargis les filtres de la colonne de gauche.</div></div>
+    <details id="legende" open><summary>Légende</summary></details>
+    <aside id="panneau" aria-live="polite"><button id="fermer" type="button" aria-label="Fermer le détail">×</button><div id="contenu"></div></aside>
+  </div>
+</div>
+<script>/*__VIS__*/</script>
+<script>
+const D = /*__DONNEES__*/;
+(function () {
+  "use strict";
+  const COULEURS = D.couleurs, RACINE = D.racine;
+  const FOND = "#070A12", NEON = "#22D3EE", TEXTE2 = "#B4C0DA", TEXTE3 = "#7F8DAE";
+  const catalogue = D.catalogue || { nodes: [], edges: [], total: 0, deja: 0 };
+  const noeuds = D.nodes.concat(catalogue.nodes), aretes = D.edges.concat(catalogue.edges);
+  const parId = new Map(noeuds.map(n => [n.id, n]));
+  const versParents = new Map(), versEnfants = new Map();
+  for (const e of aretes) {
+    if (!versParents.has(e.to)) versParents.set(e.to, []);
+    if (!versEnfants.has(e.from)) versEnfants.set(e.from, []);
+    versParents.get(e.to).push(e); versEnfants.get(e.from).push(e);
+  }
+  const etat = { zones: new Set(D.zones.map(z => z.nom)), niveaux: new Set(D.niveaux),
+                 chemin: true, pct: false, mode: "organique", fige: false, selection: null, echelle: 0.5,
+                 catalogue: false };
+  // une société garde son nom visible selon le zoom : niveau 1 vite, niveaux plus profonds quand on s'approche
+  const SEUIL = { 1: 0.35, 2: 0.75, 3: 1.0 };
+  const etiquette = n => decoupe(n.nom, 20) + (n.etat_web ? "\n(" + n.etat_web + ")" : "");
+  const etiquetteVisible = n => n.id === RACINE || etat.selection === n.id || etat.echelle >= (SEUIL[n.niveau] || 1.2);
+  let reseau = null, dsN = new vis.DataSet(), dsE = new vis.DataSet(), visibles = new Map();
+
+  const rgba = (hex, a) => { const v = parseInt(hex.slice(1), 16);
+    return `rgba(${v >> 16 & 255},${v >> 8 & 255},${v & 255},${a})`; };
+  const el = (tag, attrs, ...enfants) => { const x = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) { if (k === "text") x.textContent = v; else x.setAttribute(k, v); }
+    for (const c of enfants) if (c) x.append(c); return x; };
+
+  function ancetres(id) {  // tous les détenteurs au-dessus, sans boucle infinie
+    const vus = new Set(), pile = [id];
+    while (pile.length) { for (const e of versParents.get(pile.pop()) || []) if (!vus.has(e.from)) { vus.add(e.from); pile.push(e.from); } }
+    return vus;
+  }
+  function cheminPrincipal(id) {  // un chemin Eurazeo -> société, en suivant le premier détenteur connu
+    const chaine = [id], vus = new Set([id]);
+    for (let n = id; n !== RACINE;) {
+      const p = (versParents.get(n) || []).find(e => !vus.has(e.from));
+      if (!p) break; chaine.unshift(p.from); vus.add(p.from); n = p.from;
+    }
+    return chaine;
+  }
+  const decoupe = (t, max) => { const mots = t.split(/\s+/), lignes = []; let l = "";
+    for (const m of mots) { if ((l + " " + m).trim().length > max && l) { lignes.push(l); l = m; } else l = (l + " " + m).trim(); }
+    if (l) lignes.push(l); return lignes.slice(0, 3).join("\n") + (lignes.length > 3 ? "…" : ""); };
+  const fmtPct = p => (p === null || p === undefined) ? "part non publiée" : (Math.round(p * 100) / 100).toString().replace(".", ",") + " %";
+
+  // ---------- Barre d'outils ----------
+  function puce(parent, texte, couleur, n, actif, quand) {
+    const b = el("button", { class: "puce", type: "button", "aria-pressed": String(actif) });
+    if (couleur) { b.style.setProperty("--c", couleur); b.append(el("span", { class: "point" })); }
+    b.append(document.createTextNode(texte + " "), el("span", { class: "n", text: "(" + n + ")" }));
+    b.addEventListener("click", () => { const on = b.getAttribute("aria-pressed") !== "true"; b.setAttribute("aria-pressed", String(on)); quand(on); });
+    parent.append(b);
+  }
+  const decompte = (cle, val) => noeuds.filter(n => n.match && n.id !== RACINE && n[cle] === val).length;
+  for (const z of D.zones) puce(document.getElementById("g-zones"), z.nom, z.couleur, decompte("zone", z.nom), true,
+    on => { on ? etat.zones.add(z.nom) : etat.zones.delete(z.nom); rendre(true); });
+  for (const n of D.niveaux) puce(document.getElementById("g-niveaux"), "N" + n, null, decompte("niveau", n), true,
+    on => { on ? etat.niveaux.add(n) : etat.niveaux.delete(n); rendre(true); });
+  document.getElementById("c-chemin").addEventListener("change", e => { etat.chemin = e.target.checked; rendre(true); });
+  document.getElementById("c-pct").addEventListener("change", e => { etat.pct = e.target.checked; rendre(false); });
+  const tCatalogue = document.getElementById("t-catalogue");
+  if (catalogue.nodes.length || catalogue.deja) {
+    tCatalogue.textContent = `Catalogue eurazeo.com (${catalogue.nodes.length} à ajouter, ${catalogue.deja} déjà ici sur ${catalogue.total})`;
+    document.getElementById("c-catalogue").addEventListener("change", e => { etat.catalogue = e.target.checked; rendre(true); });
+  } else {
+    document.getElementById("l-catalogue").style.display = "none";
+  }
+  const bMode = document.getElementById("b-mode"), bFige = document.getElementById("b-fige");
+  bMode.addEventListener("click", () => {
+    etat.mode = etat.mode === "organique" ? "niveaux" : "organique";
+    bMode.setAttribute("aria-pressed", String(etat.mode === "niveaux")); bMode.textContent = etat.mode === "niveaux" ? "Libre" : "En anneaux";
+    appliquerMode(); rendre(true);
+  });
+  bFige.addEventListener("click", () => { etat.fige = !etat.fige; bFige.setAttribute("aria-pressed", String(etat.fige));
+    bFige.textContent = etat.fige ? "Libérer" : "Figer"; appliquerMode(); });
+  document.getElementById("b-fit").addEventListener("click", () => reseau.fit({ animation: { duration: 400 } }));
+  const dl = document.getElementById("noms");
+  for (const n of noeuds) dl.append(el("option", { value: n.nom }));
+  const champ = document.getElementById("recherche");
+  champ.addEventListener("change", () => {
+    const q = champ.value.trim().toLowerCase(); if (!q) return;
+    const n = noeuds.find(x => x.nom.toLowerCase() === q) || noeuds.find(x => x.nom.toLowerCase().includes(q));
+    if (!n) { document.getElementById("etat").textContent = "Aucune société ne porte ce nom."; return; }
+    if (!visibles.has(n.id)) { document.getElementById("etat").textContent = n.nom + " est masquée par les filtres."; return; }
+    choisir(n.id, true);
+  });
+
+  // ---------- Légende ----------
+  (function legende() {
+    const L = document.getElementById("legende");
+    const forme = (svg) => { const s = el("span"); s.innerHTML = svg; return s; };   // SVG fixe, sans donnée externe
+    const ligne = (svg, txt) => L.append(el("div", { class: "l" }, forme(svg), el("span", { text: txt })));
+    ligne('<svg width="16" height="16"><circle cx="8" cy="8" r="6" fill="#0AA3C2"/></svg>', "Rond : société");
+    ligne('<svg width="16" height="16"><rect x="2" y="2" width="12" height="12" fill="#0AA3C2"/></svg>', "Carré : holding, fonds ou siège (NAF)");
+    ligne('<svg width="16" height="16"><circle cx="8" cy="8" r="5.5" fill="none" stroke="#B4C0DA" stroke-dasharray="3 2" stroke-width="1.6"/></svg>', "Pointillé : nature inconnue");
+    ligne('<svg width="16" height="16"><circle cx="8" cy="8" r="6" fill="#0AA3C2" fill-opacity=".25" stroke="#0AA3C2" stroke-opacity=".5"/></svg>', "Pâle : sur le chemin vers Eurazeo");
+    ligne('<svg width="16" height="16"><circle cx="8" cy="8" r="5.5" fill="#0AA3C2" stroke="#E66767" stroke-width="2.5"/></svg>', "Bord rouge : cession annoncée ou réalisée (source web)");
+    ligne('<svg width="22" height="16"><line x1="1" y1="8" x2="21" y2="8" stroke="#22D3EE" stroke-width="3" stroke-opacity=".6"/></svg>', "Trait épais : grosse part du capital");
+    ligne('<svg width="22" height="16"><line x1="1" y1="8" x2="21" y2="8" stroke="#22D3EE" stroke-dasharray="3 3" stroke-width="1.5"/></svg>', "Trait pointillé : part non publiée");
+    ligne('<svg width="22" height="16"><line x1="1" y1="8" x2="21" y2="8" stroke="#B4C0DA" stroke-dasharray="1 4" stroke-width="2"/></svg>', "Points : autre détenteur de la même société");
+    if (catalogue.nodes.length || catalogue.deja) {
+      ligne('<svg width="16" height="16"><rect x="3" y="3" width="10" height="10" fill="#8A94AA" fill-opacity=".3" stroke="#8A94AA" stroke-dasharray="2 2" transform="rotate(45 8 8)"/></svg>', "Losange gris : catalogue eurazeo.com, lien non vérifié");
+    }
+  })();
+
+  // ---------- Style des noeuds et des liens ----------
+  function visNoeud(n, fantome, att) {
+    const racine = n.id === RACINE, catalogue = n.nature === "catalogue";
+    const c = catalogue ? "#8A94AA" : (COULEURS[n.zone] || "#8A94AA");
+    const alpha = att ? 0.2 : (fantome ? 0.3 : 0.95);
+    const taille = racine ? 26 : (catalogue ? 7 : ({ 1: 16, 2: 13, 3: 10 }[n.niveau] || 8));
+    const lisible = etiquetteVisible(n);
+    const pale = n.nature === "inconnue" || catalogue;
+    return { id: n.id, level: n.niveau, label: lisible ? etiquette(n) : "",
+      shape: racine ? "dot" : (n.nature === "holding" ? "square" : (catalogue ? "diamond" : "dot")), size: taille,
+      shapeProperties: { borderDashes: pale && !racine ? [4, 3] : false },
+      borderWidth: racine ? 4 : (n.etat_web ? 3.5 : 2), borderWidthSelected: 4,
+      color: racine ? { background: FOND, border: NEON, highlight: { background: FOND, border: NEON }, hover: { background: FOND, border: NEON } }
+        : { background: pale ? rgba(c, alpha * .25) : rgba(c, alpha),
+            border: n.etat_web ? rgba("#E66767", Math.min(1, alpha + .2)) : (pale ? rgba(c, Math.min(1, alpha + .1)) : FOND),
+            highlight: { background: rgba(c, 1), border: "#E8EEFA" }, hover: { background: rgba(c, 1), border: "#E8EEFA" } },
+      font: { color: att ? "rgba(180,192,218,.25)" : (fantome ? TEXTE3 : "#E8EEFA"), size: racine ? 16 : 12, face: "Manrope, Segoe UI, sans-serif",
+              strokeWidth: 4, strokeColor: FOND, bold: racine ? { color: "#E8EEFA" } : undefined },
+      title: n.titre, mass: racine ? 4 : 1 + (n.niveau === 1 ? 0.5 : 0) };
+  }
+  function visArete(e, att) {
+    const interne = e.interne, pctConnu = e.pct !== null && e.pct !== undefined;
+    const alpha = att ? 0.06 : (e.catalogue ? 0.3 : (interne ? 0.42 : 0.4));
+    const col = e.catalogue ? "138,148,170" : (interne ? "180,192,218" : "34,211,238");
+    return { id: e.from + ">" + e.to, from: e.from, to: e.to,
+      width: e.catalogue ? 0.8 : (pctConnu ? 0.8 + Math.min(100, e.pct) / 100 * 3.4 : 1.1),
+      dashes: e.catalogue ? [2, 4] : (interne ? [1, 5] : (pctConnu ? false : [5, 5])),
+      length: e.from === RACINE ? (e.catalogue ? 320 : 240) : (interne ? 140 : 80),
+      arrows: { to: { enabled: true, scaleFactor: 0.4 } },
+      color: { color: `rgba(${col},${alpha})`, highlight: `rgba(${col},0.95)`, hover: `rgba(${col},0.9)`, inherit: false },
+      label: etat.pct && !att && !e.catalogue ? fmtPct(e.pct).replace("part non publiée", "n.p.") : undefined,
+      font: { size: 10, color: TEXTE2, strokeWidth: 3, strokeColor: FOND, align: "middle" },
+      smooth: etat.mode === "niveaux" ? false : { enabled: true, type: "continuous", roundness: 0.15 } };
+  }
+
+  // ---------- Ensemble visible ----------
+  function calculerVisibles() {
+    const v = new Map();
+    for (const n of noeuds) {
+      if (n.nature === "catalogue") { if (etat.catalogue) v.set(n.id, false); continue; }
+      if (n.match && etat.zones.has(n.zone) && etat.niveaux.has(n.niveau)) v.set(n.id, false);
+    }
+    if (etat.chemin) for (const id of [...v.keys()]) for (const a of ancetres(id)) if (!v.has(a)) v.set(a, true);
+    v.set(RACINE, false);
+    return v;
+  }
+  function cheminSelection() {
+    if (!etat.selection || !visibles.has(etat.selection)) return null;
+    const s = new Set([etat.selection, ...ancetres(etat.selection)]);
+    for (const e of versEnfants.get(etat.selection) || []) s.add(e.to);
+    return s;
+  }
+
+  // Disposition en anneaux : Eurazeo au centre, une couronne par niveau, chaque société dans le secteur de son détenteur.
+  function positionsAnneaux() {
+    const tousIds = [...visibles.keys()].filter(i => i !== RACINE);
+    const niveauMax = Math.max(0, ...tousIds.map(id => (parId.get(id) || {}).niveau || 0).filter(x => x > 0));
+    // le catalogue (lien non vérifié, pas de niveau réel) forme son propre anneau, le plus extérieur
+    const niv = id => { const n = parId.get(id); return n && n.nature === "catalogue" ? niveauMax + 1 : (n ? n.niveau || 0 : 0); };
+    const enfants = new Map();
+    const pere = new Map();
+    for (const id of tousIds) {
+      const c = (versParents.get(id) || []).filter(e => !e.interne && visibles.has(e.from) && niv(e.from) < niv(id))
+        .sort((a, b) => niv(b.from) - niv(a.from))[0];   // le détenteur visible le plus proche
+      pere.set(id, c ? c.from : RACINE);
+    }
+    for (const id of tousIds) { const p = pere.get(id); if (!enfants.has(p)) enfants.set(p, []); enfants.get(p).push(id); }
+    const poids = new Map();
+    const feuilles = id => { if (poids.has(id)) return poids.get(id);
+      const k = enfants.get(id) || []; const w = k.length ? k.reduce((s, x) => s + feuilles(x), 0) : 1; poids.set(id, w); return w; };
+    const pos = {}, parNiveau = {};
+    tousIds.forEach(id => { const l = Math.max(1, niv(id)); parNiveau[l] = (parNiveau[l] || 0) + 1; });
+    const rayon = {}; let prec = 0;
+    for (const l of Object.keys(parNiveau).map(Number).sort((a, b) => a - b)) { prec = rayon[l] = Math.max(prec + 190, parNiveau[l] * 52 / 6.283); }
+    pos[RACINE] = { x: 0, y: 0 };
+    (function placer(id, a0, a1) {
+      const k = (enfants.get(id) || []).slice().sort((a, b) => niv(a) - niv(b) || (parId.get(a).nom < parId.get(b).nom ? -1 : 1));
+      const total = k.reduce((s, x) => s + feuilles(x), 0); let a = a0;
+      for (const x of k) { const part = (a1 - a0) * feuilles(x) / total, mid = a + part / 2, r = rayon[Math.max(1, niv(x))] || 200;
+        pos[x] = { x: Math.cos(mid) * r, y: Math.sin(mid) * r }; placer(x, a, a + part); a += part; }
+    })(RACINE, -Math.PI / 2, Math.PI * 1.5);
+    return pos;
+  }
+
+  function rendre(recentrer) {
+    const anciennes = reseau ? reseau.getPositions() : {};
+    visibles = calculerVisibles();
+    if (etat.selection && !visibles.has(etat.selection)) { etat.selection = null; fermerPanneau(); }
+    const chemin = cheminSelection();
+    const anneaux = etat.mode === "niveaux" ? positionsAnneaux() : null;
+    const listeN = [], listeE = [];
+    for (const [id, fantome] of visibles) {
+      const n = parId.get(id); if (!n) continue;
+      const o = visNoeud(n, fantome, chemin && !chemin.has(id));
+      const p = anciennes[id];
+      if (anneaux && anneaux[id]) { o.x = anneaux[id].x; o.y = anneaux[id].y; }
+      else if (p) { o.x = p.x; o.y = p.y; }
+      else {  // nouvelle société : on la pose près de son détenteur, le réseau se réorganise ensuite
+        const par = (versParents.get(id) || []).map(e => anciennes[e.from]).find(Boolean);
+        const base = par || { x: 0, y: 0 }, ang = Math.random() * 6.283, r = 60 + Math.random() * 60;
+        o.x = base.x + Math.cos(ang) * r; o.y = base.y + Math.sin(ang) * r;
+      }
+      listeN.push(o);
+    }
+    for (const e of aretes) if (visibles.has(e.from) && visibles.has(e.to))
+      listeE.push(visArete(e, chemin && !(chemin.has(e.from) && chemin.has(e.to))));
+    dsN.clear(); dsE.clear(); dsN.add(listeN); dsE.add(listeE);
+    const nReel = [...visibles].filter(([id, f]) => !f && id !== RACINE).length, nChemin = [...visibles].filter(([id, f]) => f).length;
+    document.getElementById("etat").textContent = nReel + " société" + (nReel > 1 ? "s" : "") + (nChemin ? " + " + nChemin + " sur le chemin" : "");
+    document.getElementById("vide").style.display = nReel === 0 ? "flex" : "none";
+    if (recentrer) setTimeout(() => reseau && reseau.fit({ animation: { duration: 500 } }), etat.mode === "niveaux" ? 200 : 1100);
+  }
+
+  function appliquerMode() {
+    const fixe = etat.mode === "niveaux";
+    reseau.setOptions({ physics: { enabled: !fixe && !etat.fige } });
+    if (!fixe && !etat.fige) reseau.startSimulation();
+  }
+
+  // ---------- Sélection et panneau ----------
+  function choisir(id, centrer) {
+    etat.selection = id; reseau.selectNodes([id]); rendre(); reseau.selectNodes([id]);
+    ouvrirPanneau(id);
+    if (centrer) reseau.focus(id, { scale: 1.1, animation: { duration: 500 } });
+  }
+  function fermerPanneau() { document.getElementById("panneau").style.display = "none"; }
+  function ouvrirPanneau(id) {
+    const n = parId.get(id); if (!n) return;
+    const c = document.getElementById("contenu"); c.replaceChildren();
+    c.append(el("h2", { text: n.nom }));
+    const past = el("div", { class: "pastilles" });
+    const p = (t, col) => { const s = el("span", { class: "pastille", text: t }); s.style.setProperty("--c", col); past.append(s); };
+    if (id !== RACINE && n.nature === "catalogue") { p("Catalogue eurazeo.com", "#8A94AA"); p("Lien non vérifié", "#E66767"); }
+    else if (id !== RACINE) { p(n.zone, COULEURS[n.zone] || "#8A94AA"); p("Niveau " + n.niveau, TEXTE2);
+      p(n.nature === "holding" ? "Holding, fonds ou siège" : (n.nature === "inconnue" ? "Nature inconnue" : "Société"), TEXTE3); }
+    c.append(past);
+    const dl = el("dl");
+    const ligne = (t, v) => { if (v === "" || v === null || v === undefined) return;
+      dl.append(el("dt", { text: t }), el("dd", { text: v })); };
+    if (id !== RACINE) {
+      const ps = versParents.get(id) || [];
+      if (ps.length) { const dd = el("dd"); ps.forEach((e, i) => { const f = parId.get(e.from);
+          dd.append(document.createTextNode((i ? "\n" : "") + (f ? f.nom : e.from) + " : " + fmtPct(e.pct) + (e.interne ? " (autre détenteur)" : "")));
+          });
+        dd.style.whiteSpace = "pre-line"; dl.append(el("dt", { text: ps.length > 1 ? "Détenue par" : "Détenue par" }), dd); }
+      ligne("Part indirecte d'Eurazeo (calcul)", n.econ);
+    }
+    for (const [t, v] of n.lignes) ligne(t, v);
+    if ((n.web || []).length) {
+      const dd = el("dd"); dd.style.whiteSpace = "pre-line";
+      n.web.forEach((w, i) => { dd.append(document.createTextNode((i ? "\n\n" : "") + w.etat + " · " + w.date + "\n" + w.evenement + "\n"),
+        el("a", { href: w.url, target: "_blank", rel: "noopener noreferrer", text: w.source + " ↗" })); });
+      dl.append(el("dt", { text: "Sources web (rapprochement par le nom, à vérifier)" }), dd);
+    }
+    const enf = versEnfants.get(id) || [];
+    if (enf.length) ligne("Détient dans ce graphe", enf.length + " société" + (enf.length > 1 ? "s" : "") + " : " +
+      enf.slice(0, 6).map(e => (parId.get(e.to) || {}).nom).join(", ") + (enf.length > 6 ? "…" : ""));
+    c.append(dl);
+    if (id !== RACINE && n.nature !== "catalogue") {
+      const ch = cheminPrincipal(id), bloc = el("div", { class: "chaine" });
+      ch.forEach((x, i) => { bloc.append(el("span", { class: "mail", text: (parId.get(x) || {}).nom || x }));
+        if (i < ch.length - 1) { const e = (versParents.get(ch[i + 1]) || []).find(y => y.from === x);
+          bloc.append(el("span", { class: "fleche", text: "↓ " + (e ? fmtPct(e.pct) : "") })); } });
+      c.append(el("dl", {}, el("dt", { text: "Chaîne jusqu'à Eurazeo (un chemin parmi ceux connus)" }), el("dd", {}, bloc)));
+    }
+    if (n.nature === "catalogue") {
+      const dd = el("dd", { text: "Citée sur le site institutionnel d'Eurazeo. Aucune chaîne de détention ni aucun pourcentage "
+        + "n'est connu : le lien direct avec Eurazeo sur ce graphe est une commodité d'affichage, pas une donnée vérifiée." });
+      c.append(el("dl", {}, el("dt", { text: "Pourquoi ce lien est en pointillé" }), dd));
+      if (n.site_web) c.append(el("dl", {}, el("dt", { text: "Site de la société" }),
+        el("dd", {}, el("a", { href: n.site_web, target: "_blank", rel: "noopener noreferrer", text: n.site_web + " ↗" }))));
+    }
+    if (n.siren) { const a = el("a", { href: "https://annuaire-entreprises.data.gouv.fr/entreprise/" + encodeURIComponent(n.siren),
+        target: "_blank", rel: "noopener noreferrer", text: "Fiche officielle (Annuaire des entreprises) ↗" });
+      c.append(el("dl", {}, el("dt", { text: "Source" }), el("dd", {}, a))); }
+    document.getElementById("panneau").style.display = "block";
+  }
+  document.getElementById("fermer").addEventListener("click", () => { etat.selection = null; reseau.unselectAll(); fermerPanneau(); rendre(); });
+
+  // ---------- Création du réseau ----------
+  reseau = new vis.Network(document.getElementById("reseau"), { nodes: dsN, edges: dsE }, {
+    autoResize: true, interaction: { hover: true, tooltipDelay: 140, multiselect: false, navigationButtons: false, keyboard: false },
+    nodes: { chosen: true }, edges: { selectionWidth: 1.5, hoverWidth: 1.2 },
+    physics: { enabled: true, solver: "barnesHut",
+      barnesHut: { gravitationalConstant: -6500, centralGravity: 0.12, springLength: 90, springConstant: 0.04, damping: 0.45, avoidOverlap: 0.9 },
+      stabilization: { enabled: true, iterations: 260, updateInterval: 40 }, minVelocity: 0.5 },
+    layout: { improvedLayout: false, randomSeed: 7 } });
+  reseau.on("click", p => {
+    if (p.nodes.length) choisir(p.nodes[0], false);
+    else if (etat.selection) { etat.selection = null; fermerPanneau(); rendre(); }
+  });
+  const palier = x => (x >= 1.0 ? 3 : x >= 0.75 ? 2 : x >= 0.35 ? 1 : 0);
+  reseau.on("zoom", () => {
+    const avant = palier(etat.echelle); etat.echelle = reseau.getScale();
+    if (palier(etat.echelle) !== avant)
+      dsN.update([...visibles].map(([id]) => { const n = parId.get(id); return n ? { id, label: etiquetteVisible(n) ? etiquette(n) : "" } : null; }).filter(Boolean));
+  });
+  reseau.once("afterDrawing", () => { etat.echelle = reseau.getScale(); });
+  rendre(true);
+  setTimeout(() => { const a = palier(0.5); etat.echelle = reseau.getScale(); if (palier(etat.echelle) !== a) rendre(false); }, 1900);
+  window.__graphe = { reseau, etat, rendre };
+})();
+</script>
+</body>
+</html>
