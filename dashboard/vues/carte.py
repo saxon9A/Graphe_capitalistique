@@ -1,3 +1,6 @@
+import html
+
+import pandas as pd
 import streamlit as st
 
 from lib import charts, data, theme, ui
@@ -31,11 +34,35 @@ points = list(getattr(getattr(evt, "selection", None), "points", []) or [])
 if points:
     cd = points[0].get("customdata") or []
     cles_point = cd[4] if len(cd) > 4 else ""
-    if cles_point:
-        st.session_state["fiche_select"] = cles_point.split("\x1f")[0]
-        st.switch_page("vues/fiche.py")
+    cles_liste = [c for c in cles_point.split("\x1f") if c] if cles_point else []
+    societes = (df[df["cle"].isin(cles_liste)]
+                .sort_values("score_opportunite", ascending=False, na_position="last")) if cles_liste else df.iloc[0:0]
+    if len(societes):
+        # Panneau directement sur la page (21/10/2026, demande explicite) plutôt qu'un switch_page
+        # automatique vers la fiche : un clic sur un disque qui regroupe plusieurs sociétés ouvrait
+        # directement, et sans choix possible, la fiche de la première — en plus de quitter la carte.
+        ui.titre_graphique(
+            f"{len(societes)} société{'s' if len(societes) > 1 else ''} à cette adresse",
+            "Clique « Voir la fiche complète » pour le détail (bail, score, dirigeants...) d'une société.")
+        for _, r in societes.iterrows():
+            c_nom, c_score, c_btn = st.columns([2.2, 2, 1.1])
+            with c_nom:
+                st.markdown(f"**{html.escape(r['nom'])}**")
+                sous = r["niveau_lib"] + (f" · {html.escape(r['identifiant'])}" if r["identifiant"] else "")
+                st.caption(sous)
+            with c_score:
+                if pd.notna(r["score_opportunite"]):
+                    st.markdown(f"Score **{int(r['score_opportunite'])}** — {r['urgence_libelle']}")
+                else:
+                    st.caption(r["urgence_libelle"] or "—")
+            with c_btn:
+                if st.button("Voir la fiche complète", key=f"carte_fiche_{r['cle']}"):
+                    st.session_state["fiche_select"] = r["cle"]
+                    st.switch_page("vues/fiche.py")
+    else:
+        st.caption("Clique sur un point pour voir les sociétés à cette adresse, directement ici.")
 else:
-    st.caption("Clique sur un point pour ouvrir la fiche d'une des sociétés à cette adresse.")
+    st.caption("Clique sur un point pour voir les sociétés à cette adresse, directement ici.")
 
 ui.titre_graphique("Les adresses, une par une",
                    "Les sociétés étrangères sont placées au centre-ville : leur position sur la carte est approximative, "

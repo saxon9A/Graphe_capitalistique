@@ -78,3 +78,13 @@ def note_sources(date_collecte: str = "", niveau_max: int = 1):
 
 def pct(x, decimales=1):
     return f"{x:.{decimales}f}".replace(".", ",") + " %"
+
+
+def montant(x) -> str:
+    """Montant en euros, format français (espace comme séparateur de milliers). « — » si manquant —
+    jamais une chaîne numérique brute passée telle quelle à un NumberColumn Streamlit : certaines
+    versions affichent littéralement "None" pour une valeur manquante dans ce cas (constaté sur le
+    dashboard déployé le 21/10/2026, colonnes CA/résultat net de l'annuaire)."""
+    if x is None or (isinstance(x, float) and pd.isna(x)):
+        return "—"
+    return f"{int(x):,} €".replace(",", " ")

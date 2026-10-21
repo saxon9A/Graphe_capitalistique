@@ -17,8 +17,14 @@ if len(notees):
 
 t = df.sort_values("score_opportunite", ascending=False, na_position="last").reset_index(drop=True)
 t["nom_detentrice"] = t["nom_detentrice"].str.title().str.replace("Lh ", "LH ")
-t["CA (dernier connu)"] = t["chiffre_affaires"].fillna(t["chiffre_affaires_estime_bilan"])
-t["Résultat net (dernier connu)"] = t["resultat_net"].fillna(t["resultat_net_estime_bilan"])
+# Texte pré-formaté (« — » si manquant), pas une colonne numérique brute avec NaN : un NumberColumn
+# Streamlit peut afficher littéralement "None" pour une valeur manquante (constaté le 21/10/2026 sur
+# le dashboard déployé) — voir ui.montant().
+t["CA (dernier connu)"] = t["chiffre_affaires"].fillna(t["chiffre_affaires_estime_bilan"]).map(ui.montant)
+t["Résultat net (dernier connu)"] = t["resultat_net"].fillna(t["resultat_net_estime_bilan"]).map(ui.montant)
+# Pour une société du catalogue, « Type » redirait toujours « Catalogue », déjà dit par « Niveau » :
+# laissé vide pour ces lignes plutôt que répété deux fois dans le tableau.
+t["type_court"] = t["type_court"].where(t["niveau"] != -1, "")
 vue = t[["nom", "score_opportunite", "urgence_libelle", "score_fiabilite", "niveau_lib", "nom_detentrice",
          "identifiant", "type_court", "zone", "pourcentage_detention", "part_economique_eurazeo", "adresse",
          "tranche_effectif", "naf_code", "forme_juridique", "statut_administratif", "date_creation", "etat_web",
@@ -41,9 +47,9 @@ config = {"Score d'opportunité": st.column_config.ProgressColumn("Score d'oppor
                                                          help="Part du capital détenue par la société de la colonne « Détenue par »."),
           "Part indirecte d'Eurazeo (calcul)": st.column_config.NumberColumn(format="%.1f %%",
               help="Niveau 2 : part de la holding dans la société × part d'Eurazeo dans la holding. Un calcul, pas une donnée publiée."),
-          "CA (dernier connu)": st.column_config.NumberColumn(format="€ %d",
+          "CA (dernier connu)": st.column_config.TextColumn(
               help="Structuré (API Recherche d'Entreprises) si disponible, sinon estimé depuis un bilan INPI (voir la fiche société)."),
-          "Résultat net (dernier connu)": st.column_config.NumberColumn(format="€ %d")}
+          "Résultat net (dernier connu)": st.column_config.TextColumn()}
 try:
     evt = st.dataframe(vue, hide_index=True, width="stretch", column_config=config, height=min(720, 36 * (len(vue) + 1) + 4),
                        on_select="rerun", selection_mode="single-row", key="annuaire_tbl")
