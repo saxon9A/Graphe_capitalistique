@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import ScoreHistogramme from "../components/ScoreHistogramme";
+import EcheancesBailChart from "../components/EcheancesBailChart";
+import ZoneChart, { filtreEstParisSeul } from "../components/ZoneChart";
 import { dateFr, montant, NoteSources, Titre, TitreGraphique } from "../components/ui";
 import { telechargerCsv } from "../lib/csv";
 import { useFiltres } from "../lib/FiltersContext";
@@ -79,7 +80,7 @@ export default function Annuaire() {
     })), trie);
   }
 
-  const scores = useMemo(() => filtre.map((r) => r.score_opportunite).filter((s) => s !== null && s !== undefined), [filtre]);
+  const paysSeul = filtreEstParisSeul(filtre);
 
   return (
     <>
@@ -88,10 +89,19 @@ export default function Annuaire() {
         chapo="Triée par score d'opportunité par défaut — clique une colonne pour trier autrement. Cherche et filtre dans la colonne de gauche, ou sélectionne une ligne pour ouvrir sa fiche."
       />
 
-      {scores.length > 0 && (
+      {filtre.length > 0 && (
         <>
-          <TitreGraphique titre={`Répartition du score sur les ${scores.length} société(s) notée(s)`} sousTitre="Rouge = opportunité forte (≥ 65), orange = moyenne (45 à 64), gris = faible ou neutre." />
-          <ScoreHistogramme scores={scores} />
+          <TitreGraphique
+            titre={`Échéances de bail à venir sur les ${filtre.length} société(s) sélectionnée(s)`}
+            sousTitre="Rouge : préavis déjà ouvert (< 90 jours). Orange puis ambre : échéance dans moins de 1 an, puis 1 à 2 ans. Gris : plus de 2 ans, ou date inconnue (hachuré — pas la même chose que « pas urgent »)."
+          />
+          <EcheancesBailChart lignes={filtre} />
+
+          <TitreGraphique
+            titre={paysSeul ? `Répartition par arrondissement sur les ${filtre.length} société(s) parisiennes` : `Répartition géographique sur les ${filtre.length} société(s)`}
+            sousTitre={paysSeul ? "Filtre réduit à Paris (colonne de gauche) : détail par arrondissement, dérivé du code postal du siège." : "Réduis le filtre de zone à Paris seule, dans la colonne de gauche, pour voir apparaître le détail par arrondissement."}
+          />
+          <ZoneChart lignes={filtre} />
         </>
       )}
 
