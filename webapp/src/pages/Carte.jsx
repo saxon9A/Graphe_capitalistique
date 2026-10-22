@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CircleMarker, MapContainer, TileLayer, Tooltip, useMap } from "react-leaflet";
 import { useNavigate } from "react-router-dom";
 import { NoteSources, Titre, TitreGraphique } from "../components/ui";
@@ -27,8 +27,10 @@ function regrouperAdresses(df) {
 
 function RecadrerCarte({ vue }) {
   const map = useMap();
-  const v = VUES_CARTE[vue];
-  map.setView(v.center, v.zoom, { animate: true });
+  useEffect(() => {
+    const v = VUES_CARTE[vue];
+    if (v) map.setView(v.center, v.zoom, { animate: true });
+  }, [map, vue]);
   return null;
 }
 
