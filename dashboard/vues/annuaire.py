@@ -23,6 +23,14 @@ t["nom_detentrice"] = t["nom_detentrice"].str.title().str.replace("Lh ", "LH ")
 t["CA (dernier connu)"] = t["chiffre_affaires"].fillna(t["chiffre_affaires_estime_bilan"]).map(ui.montant)
 t["Résultat net (dernier connu)"] = t["resultat_net"].fillna(t["resultat_net_estime_bilan"]).map(ui.montant)
 t["Date d'installation"] = t["date_installation_siege"].map(ui.date_fr)
+# Code postal + ville ajoutés à l'adresse : déjà présents dedans pour les niveaux 1-3 (adresse
+# complète renvoyée telle quelle par l'API), mais absents pour le catalogue (rue seule) — ajoutés
+# seulement quand ils manquent, pour ne jamais les répéter.
+t["adresse"] = t.apply(
+    lambda r: r["adresse"] if not r["code_postal"] or r["code_postal"] in r["adresse"]
+    else (f"{r['adresse']}, {r['code_postal']} {r['ville']}".strip() if r["adresse"]
+          else f"{r['code_postal']} {r['ville']}".strip()),
+    axis=1)
 # Colonnes centrées sur la prospection en priorité (21/10/2026, demande explicite) ; fiabilité,
 # niveau, détenue par, type, part détenue, part indirecte et NAF retirés de ce tableau (redondants
 # ou peu utiles pour cibler une société à démarcher — toujours visibles sur sa fiche complète).
