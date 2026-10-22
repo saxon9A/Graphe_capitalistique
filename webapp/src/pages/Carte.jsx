@@ -5,6 +5,12 @@ import { NoteSources, Titre, TitreGraphique } from "../components/ui";
 import { COULEUR_ZONE, meta, ZONE_ETRANGER, ZONES } from "../lib/dataset";
 import { useFiltres } from "../lib/FiltersContext";
 
+// CARTO exige une clé API gratuite pour ses fonds de carte raster depuis le 25/09/2026 (voir
+// https://docs.carto.com/faqs/carto-basemaps) : à générer sur https://carto.com/basemaps/apikey/
+// (gratuit, sans compte, ~1 minute) puis à mettre dans VITE_CARTO_API_KEY (.env.local en local,
+// variable d'environnement Vercel en production).
+const CARTO_KEY = import.meta.env.VITE_CARTO_API_KEY || "";
+
 const VUES_CARTE = {
   Monde: { center: [38.0, -30.0], zoom: 2 },
   "Monde proche": { center: [49.0, 3.0], zoom: 4 },
@@ -71,10 +77,19 @@ export default function Carte() {
         ))}
       </div>
 
+      {!CARTO_KEY && (
+        <p className="sidebar-caption" style={{ color: "var(--couleur-alerte)" }}>
+          Clé CARTO absente (VITE_CARTO_API_KEY) : le fond de carte ne s'affichera pas. Voir webapp/README.md.
+        </p>
+      )}
       <div style={{ borderRadius: 14, overflow: "hidden", border: "1px solid var(--ligne)", marginBottom: "1rem" }}>
         <MapContainer center={VUES_CARTE[vue].center} zoom={VUES_CARTE[vue].zoom} style={{ height: 560, background: "var(--fond)" }} worldCopyJump>
           <RecadrerCarte vue={vue} />
-          <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_matter/{z}/{x}/{y}{r}.png" attribution='&copy; <a href="https://carto.com/">CARTO</a>' />
+          <TileLayer
+            url={`https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png?key=${CARTO_KEY}`}
+            subdomains="abcd"
+            attribution='&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          />
           {ZONES.map((z) => groupes.filter((g) => g.zone === z).map((g, i) => (
             <CircleMarker
               key={`${z}-${i}`}

@@ -9,10 +9,16 @@ import { useFiltres } from "../lib/FiltersContext";
 const COULEUR_URGENCE = { 3: "var(--couleur-alerte)", 2: "#C98500", 1: "var(--texte2)", 0: "var(--texte2)" };
 const STATUT_INCONNU = "Échéance inconnue";
 
+// Clé CARTO : voir Carte.jsx (même note, exigée depuis le 25/09/2026).
+const CARTO_KEY = import.meta.env.VITE_CARTO_API_KEY || "";
+
 function MiniCarte({ lat, lon, couleur, zoom }) {
   return (
     <MapContainer center={[lat, lon]} zoom={zoom} style={{ height: 260, borderRadius: 14 }} zoomControl={false} attributionControl={false}>
-      <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_matter/{z}/{x}/{y}{r}.png" />
+      <TileLayer
+        url={`https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png?key=${CARTO_KEY}`}
+        subdomains="abcd"
+      />
       <CircleMarker center={[lat, lon]} radius={9} pathOptions={{ color: couleur, fillColor: couleur, fillOpacity: 0.9, weight: 0 }} />
     </MapContainer>
   );
